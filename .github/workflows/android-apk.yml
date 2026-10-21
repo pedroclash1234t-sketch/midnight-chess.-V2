@@ -11,10 +11,9 @@ contents: read
 jobs:
 build:
 runs-on: ubuntu-latest
-
 steps:
-  - name: Checkout repository
-    uses: actions/checkout@v4
+- name: Checkout repository
+uses: actions/checkout@v4
 
   - name: Setup Node.js
     uses: actions/setup-node@v4
@@ -39,17 +38,11 @@ steps:
     run: |
       mkdir -p extracted
       unzip -o "midnight-chess -novo.zip.zip" -d extracted
-
-      PROJECT_DIR=$(find extracted -type f -name package.json \
-        -not -path '*/node_modules/*' \
-        -not -path '*/android/*' \
-        -print -quit | xargs -r dirname)
-
+      PROJECT_DIR=$(find extracted -type f -name package.json -not -path '*/node_modules/*' -not -path '*/android/*' -print -quit | xargs -r dirname)
       if [ -z "$PROJECT_DIR" ] || [ ! -f "$PROJECT_DIR/package.json" ]; then
         echo "ERRO: package.json não encontrado dentro do ZIP."
         exit 1
       fi
-
       echo "Projeto encontrado em: $PROJECT_DIR"
       echo "dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
 
