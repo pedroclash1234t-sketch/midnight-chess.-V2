@@ -51,19 +51,34 @@ jobs:
           mkdir -p extracted
           unzip -o "$ZIP_FILE" -d extracted
 
-          PACKAGE_JSON="$(find extracted -type f -name package.json \
+          PACKAGE_JSON=""
+
+          while IFS= read -r FILE; do
+            DIR="$(dirname "$FILE")"
+
+            if node -e '
+              const p = require(process.argv[1]);
+              process.exit(p.scripts && p.scripts.apk ? 0 : 1);
+            ' "$PWD/$FILE" 2>/dev/null; then
+              PACKAGE_JSON="$FILE"
+              break
+            fi
+          done < <(find extracted -type f -name package.json \
             -not -path '*/node_modules/*' \
+            -not -path '*/tests/*' \
+            -not -path '*/test/*' \
             -not -path '*/android/*' \
-            -print -quit)"
+            -print)
 
           if [ -z "$PACKAGE_JSON" ]; then
-            echo "ERRO: package.json não encontrado no ZIP."
+            echo "ERRO: não encontrei o package.json principal com script apk."
+            echo "É necessário verificar a estrutura do ZIP."
             exit 1
           fi
 
           PROJECT_DIR="$(dirname "$PACKAGE_JSON")"
 
-          echo "Projeto encontrado em: $PROJECT_DIR"
+          echo "Projeto principal encontrado em: $PROJECT_DIR"
           echo "dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
 
       - name: Install dependencies and build APK
@@ -75,21 +90,7 @@ jobs:
 
           npm install
 
-          npm run build
-
-          if [ ! -f dist/index.html ]; then
-            echo "ERRO: dist/index.html não foi criado pelo build."
-            echo "Confira o script build e a configuração webDir do Capacitor."
-            exit 1
-          fi
-
-          npx cap add android
-          npx cap sync android
-
-          chmod +x android/gradlew
-
-          cd android
-          ./gradlew assembleDebug
+          npm run apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
