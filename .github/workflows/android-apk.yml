@@ -75,12 +75,21 @@ jobs:
 
           npm install
 
-          if [ -d android ]; then
-            chmod +x android/gradlew
-            npm run apk:update
-          else
-            npm run apk
+          npm run build
+
+          if [ ! -f dist/index.html ]; then
+            echo "ERRO: dist/index.html não foi criado pelo build."
+            echo "Confira o script build e a configuração webDir do Capacitor."
+            exit 1
           fi
+
+          npx cap add android
+          npx cap sync android
+
+          chmod +x android/gradlew
+
+          cd android
+          ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
