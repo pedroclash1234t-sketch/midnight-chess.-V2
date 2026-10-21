@@ -54,8 +54,6 @@ jobs:
           PACKAGE_JSON=""
 
           while IFS= read -r FILE; do
-            DIR="$(dirname "$FILE")"
-
             if node -e '
               const p = require(process.argv[1]);
               process.exit(p.scripts && p.scripts.apk ? 0 : 1);
@@ -71,14 +69,13 @@ jobs:
             -print)
 
           if [ -z "$PACKAGE_JSON" ]; then
-            echo "ERRO: não encontrei o package.json principal com script apk."
-            echo "É necessário verificar a estrutura do ZIP."
+            echo "ERRO: package.json principal com script apk não encontrado."
             exit 1
           fi
 
           PROJECT_DIR="$(dirname "$PACKAGE_JSON")"
 
-          echo "Projeto principal encontrado em: $PROJECT_DIR"
+          echo "Projeto encontrado em: $PROJECT_DIR"
           echo "dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
 
       - name: Install dependencies and build APK
@@ -89,6 +86,18 @@ jobs:
           cd "${{ steps.project.outputs.dir }}"
 
           npm install
+
+          echo "Compilando os arquivos web..."
+
+          node --input-type=module -e "import('./scripts/build.mjs').then(({ runBuild }) => runBuild())"
+
+          if [ ! -f dist/index.html ]; then
+            echo "ERRO: a compilação não criou dist/index.html."
+            echo "Verifique os arquivos src/main.tsx, index.html e public/."
+            exit 1
+          fi
+
+          echo "Arquivos web criados. Preparando o APK..."
 
           npm run apk
 
