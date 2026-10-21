@@ -1,0 +1,89 @@
+name: Build Midnight Chess APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools platforms;android-35 build-tools;35.0.0
+          accept-android-sdk-licenses: true
+
+      - name: Find and extract project ZIP
+        id: project
+        shell: bash
+        run: |
+          set -e
+
+          ZIP_FILE="$(find . -maxdepth 1 -type f -name '*.zip' -print -quit)"
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ERRO: nenhum arquivo ZIP encontrado na raiz."
+            exit 1
+          fi
+
+          mkdir -p extracted
+          unzip -o "$ZIP_FILE" -d extracted
+
+          PACKAGE_JSON="$(find extracted -type f -name package.json \
+            -not -path '*/node_modules/*' \
+            -not -path '*/android/*' \
+            -print -quit)"
+
+          if [ -z "$PACKAGE_JSON" ]; then
+            echo "ERRO: package.json não encontrado no ZIP."
+            exit 1
+          fi
+
+          PROJECT_DIR="$(dirname "$PACKAGE_JSON")"
+
+          echo "Projeto encontrado em: $PROJECT_DIR"
+          echo "dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies and build APK
+        shell: bash
+        run: |
+          set -e
+          cd "${{ steps.project.outputs.dir }}"
+
+          npm install
+
+          if [ -d android ]; then
+            chmod +x android/gradlew
+            npm run apk:update
+          else
+            npm run apk
+          fi
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: midnight-chess-apk
+          path: extracted/**/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          
